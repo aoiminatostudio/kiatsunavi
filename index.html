@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>気圧・天気ナビ｜10日間の気圧変化と天気予報</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 45%, #f0f9ff 100%);
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    /* スマホ画面（360px〜430px）を最優先しつつ、PC・タブレットでも中央に見やすく配置 */
+    .app-shell {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0284c7 0%, #38bdf8 17%, #e0f2fe 46%, #f8fafc 100%);
+      box-shadow: 0 12px 36px rgba(2, 132, 199, 0.16);
+      position: relative;
+      overflow-x: hidden;
+      padding-bottom: 24px;
+    }
+
+    /* 白基調のクリーンカード */
+    .surface-card {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.92);
+      box-shadow: 0 4px 14px rgba(14, 116, 144, 0.08);
+    }
+
+    /* 期間切り替えタブ */
+    .tab-btn {
+      transition: all 0.16s ease;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.32);
+    }
+
+    /* グラフ列のインタラクション */
+    .chart-col-hit {
+      cursor: pointer;
+      transition: fill 0.12s ease;
+    }
+    .chart-col-hit:hover {
+      fill: rgba(2, 132, 199, 0.07);
+    }
+
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- ==================== 1. ヘッダー ==================== -->
+    <header class="px-3 pt-3 pb-2 text-white">
+      <div class="flex items-center justify-between gap-1.5">
+        <!-- 左側：アプリアイコン・タイトル・サブタイトル（省略なし・1行表示） -->
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-9 h-9 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="24" cy="12" r="5.5" fill="#FBBF24"/>
+              <path d="M11 26H24.5C27.5376 26 30 23.5376 30 20.5C30 17.651 27.8338 15.3085 25.0561 15.0278C24.287 11.5786 21.2096 9 17.5 9C13.2198 9 9.75 12.4698 9.75 16.75C9.75 16.9234 9.7557 17.0955 9.7669 17.266C7.6383 17.8127 6 19.7443 6 22.05C6 24.7838 8.2162 27 10.95 27" fill="#E0F2FE" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M11.5 22.5L15.2 19.8L18.8 23.2L23.5 19.2" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h1 class="text-[16px] min-[375px]:text-[17px] font-extrabold tracking-tight leading-tight drop-shadow-sm whitespace-nowrap">気圧・天気ナビ</h1>
+            <p class="text-[10px] min-[375px]:text-[10.5px] text-sky-50 font-medium leading-tight mt-0.5 whitespace-nowrap">気圧と天候の変化をひと目で確認</p>
+          </div>
+        </div>
+
+        <!-- 右側：地域選択 & 更新バッジ -->
+        <div class="flex flex-col items-end gap-1 shrink-0">
+          <div class="relative">
+            <select id="city-select" aria-label="地域を選択" class="appearance-none bg-white text-slate-800 text-xs font-extrabold pl-6 pr-5 py-1 rounded-full shadow-sm border border-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300 cursor-pointer">
+              <option value="35.4437,139.6380" selected>横浜市</option>
+              <option value="35.6762,139.6503">東京都</option>
+              <option value="34.6937,135.5023">大阪市</option>
+              <option value="35.1815,136.9066">名古屋市</option>
+              <option value="43.0618,141.3545">札幌市</option>
+              <option value="33.5902,130.4017">福岡市</option>
+              <option value="38.2682,140.8694">仙台市</option>
+              <option value="26.2124,127.6809">那覇市</option>
+            </select>
+            <svg class="w-3.5 h-3.5 text-sky-600 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+            </svg>
+            <svg class="w-3 h-3 text-slate-500 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+
+          <button id="refresh-btn" type="button" title="クリックして最新データに更新" class="flex items-center gap-1 bg-sky-900/35 hover:bg-sky-900/55 active:scale-95 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/25 transition whitespace-nowrap">
+            <svg id="refresh-icon" class="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd"/>
+            </svg>
+            <span id="update-time">取得中...</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== エラーバナー（API失敗時：古い情報を誤表示しない） ==================== -->
+    <div id="error-banner" class="hidden mx-2.5 mb-2.5 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-950 shadow-sm" role="alert">
+      <div class="flex items-start gap-2">
+        <span class="text-base leading-none mt-0.5">⚠️</span>
+        <div class="flex-1 text-xs">
+          <p class="font-extrabold text-rose-800">気象データの取得に失敗しました</p>
+          <p id="error-detail" class="text-rose-700 mt-0.5 leading-relaxed">古いデータを最新情報として誤表示しないため、画面をクリアしています。通信状況をご確認のうえ再取得してください。</p>
+          <div class="mt-2">
+            <button id="retry-btn" type="button" class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm active:scale-95 transition">
+              再取得する
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 2. 現在の天気・気圧カード ==================== -->
+    <section class="px-2.5 mb-2">
+      <div class="surface-card rounded-2xl p-2.5">
+        <!-- 上段：現在の天気・気圧（hPaが右隣ボックスと重ならない余裕レイアウト） -->
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <div id="current-weather-icon" class="w-10 h-10 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center shrink-0">
+              <!-- SVG天気アイコン -->
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1 whitespace-nowrap">
+                <span class="text-[11px] font-bold text-slate-500">現在</span>
+                <span id="current-weather-text" class="text-xs font-extrabold text-slate-800">--</span>
+              </div>
+              <div class="flex items-baseline gap-1 mt-0.5 whitespace-nowrap">
+                <span id="current-pressure" class="text-[20px] min-[375px]:text-[22px] font-extrabold text-sky-700 tabular-nums leading-none">----</span>
+                <span class="text-[11px] font-bold text-slate-500">hPa</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右側：気温・湿度・降水確率 -->
+          <div class="grid grid-cols-3 text-center bg-sky-50/90 rounded-xl py-1.5 px-1 border border-sky-100 shrink-0">
+            <div class="px-1.5 min-[375px]:px-2">
+              <div class="text-[10px] font-bold text-slate-500 whitespace-nowrap">気温</div>
+              <div id="current-temp" class="text-xs font-extrabold text-slate-800 tabular-nums mt-0.5">--°</div>
+            </div>
+            <div class="border-x border-sky-200/80 px-1.5 min-[375px]:px-2">
+              <div class="text-[10px] font-bold text-slate-500 whitespace-nowrap">湿度</div>
+              <div id="current-humidity" class="text-xs font-extrabold text-slate-800 tabular-nums mt-0.5">--%</div>
+            </div>
+            <div class="px-1.5 min-[375px]:px-2">
+              <div class="text-[10px] font-bold text-slate-500 whitespace-nowrap">降水</div>
+              <div id="current-pop" class="text-xs font-extrabold text-sky-700 tabular-nums mt-0.5">--%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下段：今後24時間の警戒アイコン＋ガイダンス（全文表示） -->
+        <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+          <span id="summary-level-badge" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 whitespace-nowrap shrink-0">
+            <!-- 共通SVGアイコン + レベル名 -->
+          </span>
+          <p id="summary-message" class="text-xs font-bold text-slate-700 leading-snug">
+            気象データを取得しています...
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 3. 表示期間切り替えタブ ==================== -->
+    <section class="px-2.5 mb-2">
+      <div class="bg-white/90 p-1 rounded-full shadow-sm border border-white flex items-center justify-between gap-1" role="tablist" aria-label="表示期間">
+        <button type="button" class="tab-btn flex-1 py-1.5 rounded-full text-xs font-extrabold text-slate-600 whitespace-nowrap" data-period="24h">24時間</button>
+        <button type="button" class="tab-btn flex-1 py-1.5 rounded-full text-xs font-extrabold text-slate-600 whitespace-nowrap" data-period="48h">48時間</button>
+        <button type="button" class="tab-btn flex-1 py-1.5 rounded-full text-xs font-extrabold text-slate-600 whitespace-nowrap" data-period="72h">72時間</button>
+        <button type="button" class="tab-btn flex-1 py-1.5 rounded-full text-xs font-extrabold text-slate-600 whitespace-nowrap" data-period="7d">7日間</button>
+        <button type="button" class="tab-btn active flex-1 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap" data-period="10d">10日間</button>
+      </div>
+    </section>
+
+    <!-- ==================== 4. メインカード：気圧グラフ ＋ 縦揃え天気予報表 ==================== -->
+    <main class="px-2.5 mb-2.5">
+      <div class="surface-card rounded-2xl overflow-hidden">
+        <!-- タップ選択時の詳細インスペクターバー（1行で省略なく表示） -->
+        <div id="inspector-bar" class="bg-sky-50/90 border-b border-sky-100 px-2.5 py-1.5 flex items-center justify-between gap-1.5 text-[10.5px] min-[375px]:text-[11px]">
+          <div id="inspector-left" class="flex items-center gap-1 font-extrabold text-slate-700 whitespace-nowrap shrink-0">
+            <span class="text-sky-600">📍</span>
+            <span>グラフの列をタップして詳細を表示</span>
+          </div>
+          <div id="inspector-values" class="font-extrabold text-sky-800 tabular-nums whitespace-nowrap shrink-0"></div>
+        </div>
+
+        <!-- 縦軸拡張時の通知（980〜1040hPaを超える台風・発達した低気圧時など） -->
+        <div id="scale-notice" class="hidden bg-amber-50 border-b border-amber-200 px-3 py-1 text-[10px] font-bold text-amber-800">
+          ※通常範囲（980〜1040hPa）を超える気圧が予想されるため、縦軸の表示範囲を自動拡張しています。
+        </div>
+
+        <!-- 4-1. 気圧折れ線グラフ（SVG：上部アイコンは気圧警戒アイコンのみ） -->
+        <div class="pt-1.5 pb-0.5 select-none">
+          <div id="chart-container" class="w-full relative">
+            <div class="h-48 flex items-center justify-center text-xs font-bold text-slate-400">
+              気圧グラフを読み込み中...
+            </div>
+          </div>
+        </div>
+
+        <!-- 4-2. グラフの列と縦に完全一致するコンパクト天気予報テーブル -->
+        <div id="forecast-table-container" class="border-t border-slate-200 bg-white">
+          <!-- JavaScriptで描画 -->
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== 5. 10日間の気圧・天気まとめ一覧（全10日表示） ==================== -->
+    <section class="px-2.5 mb-2.5 space-y-2">
+      <div class="surface-card rounded-2xl p-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <h2 class="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-sky-600 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clip-rule="evenodd"/>
+            </svg>
+            <span>10日間の気圧・天気まとめ</span>
+          </h2>
+          <span class="text-[10px] font-bold text-slate-400">全10日間・タップで選択</span>
+        </div>
+
+        <div id="all-days-list" class="divide-y divide-slate-100">
+          <p class="text-slate-400 text-[11px] py-2">読み込み中...</p>
+        </div>
+      </div>
+
+      <!-- 警戒レベルの判定基準カスタマイズ（折りたたみ式） -->
+      <details class="surface-card rounded-2xl overflow-hidden group">
+        <summary class="px-3 py-2.5 text-xs font-extrabold text-slate-700 cursor-pointer flex items-center justify-between list-none select-none">
+          <span class="flex items-center gap-1.5">
+            <span>⚙️</span>
+            <span>警戒レベルの判定基準を調整する</span>
+          </span>
+          <span class="text-[11px] font-bold text-sky-600 group-open:rotate-180 transition-transform">▼</span>
+        </summary>
+        <div class="px-3 pb-3 pt-1.5 border-t border-slate-100 text-xs space-y-2.5 bg-slate-50/70">
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            <strong>6時間以内の急激な変化</strong>と、<strong>その日（または12時間）の中の大きな変化幅</strong>を組み合わせて4段階を判定します。前日の変動は翌日に持ち越しません。
+          </p>
+
+          <!-- 6時間変化の基準 -->
+          <div>
+            <div class="text-[10.5px] font-extrabold text-slate-600 mb-1">6時間あたりの変化幅（急激な変化）</div>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="block bg-white p-2 rounded-xl border border-amber-200">
+                <span class="flex items-center gap-1 text-[10px] font-extrabold text-amber-800 whitespace-nowrap">
+                  <span id="setting-icon-2" class="inline-flex"></span>
+                  <span>注意</span>
+                </span>
+                <div class="flex items-baseline gap-1 mt-1">
+                  <input id="thresh-6h-2" type="number" step="0.5" min="1" max="15" class="w-full font-extrabold text-sm text-slate-800 border-b border-slate-300 focus:border-sky-500 focus:outline-none tabular-nums">
+                  <span class="text-[10px] text-slate-500">hPa</span>
+                </div>
+              </label>
+
+              <label class="block bg-white p-2 rounded-xl border border-rose-200">
+                <span class="flex items-center gap-1 text-[10px] font-extrabold text-rose-800 whitespace-nowrap">
+                  <span id="setting-icon-3" class="inline-flex"></span>
+                  <span>警戒</span>
+                </span>
+                <div class="flex items-baseline gap-1 mt-1">
+                  <input id="thresh-6h-3" type="number" step="0.5" min="2" max="20" class="w-full font-extrabold text-sm text-slate-800 border-b border-slate-300 focus:border-sky-500 focus:outline-none tabular-nums">
+                  <span class="text-[10px] text-slate-500">hPa</span>
+                </div>
+              </label>
+
+              <label class="block bg-white p-2 rounded-xl border border-purple-200">
+                <span class="flex items-center gap-1 text-[10px] font-extrabold text-purple-800 whitespace-nowrap">
+                  <span id="setting-icon-4" class="inline-flex"></span>
+                  <span>爆弾</span>
+                </span>
+                <div class="flex items-baseline gap-1 mt-1">
+                  <input id="thresh-6h-4" type="number" step="0.5" min="4" max="30" class="w-full font-extrabold text-sm text-slate-800 border-b border-slate-300 focus:border-sky-500 focus:outline-none tabular-nums">
+                  <span class="text-[10px] text-slate-500">hPa</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- 1日内／12時間変化の基準 -->
+          <div>
+            <div class="text-[10.5px] font-extrabold text-slate-600 mb-1">1日内（および12時間）の変化幅（大きなうねり）</div>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="block bg-white p-2 rounded-xl border border-amber-200">
+                <span class="text-[10px] font-extrabold text-amber-800 whitespace-nowrap">注意 (以上)</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                  <input id="thresh-range-2" type="number" step="0.5" min="3" max="25" class="w-full font-extrabold text-sm text-slate-800 border-b border-slate-300 focus:border-sky-500 focus:outline-none tabular-nums">
+                  <span class="text-[10px] text-slate-500">hPa</span>
+                </div>
+              </label>
+
+              <label class="block bg-white p-2 rounded-xl border border-rose-200">
+                <span class="text-[10px] font-extrabold text-rose-800 whitespace-nowrap">警戒 (以上)</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                  <input id="thresh-range-3" type="number" step="0.5" min="5" max="35" class="w-full font-extrabold text-sm text-slate-800 border-b border-slate-300 focus:border-sky-500 focus:outline-none tabular-nums">
+                  <span class="text-[10px] text-slate-500">hPa</span>
+                </div>
+              </label>
+
+              <label class="block bg-white p-2 rounded-xl border border-purple-200">
+                <span class="text-[10px] font-extrabold text-purple-800 whitespace-nowrap">爆弾 (以上)</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                  <input id="thresh-range-4" type="number" step="0.5" min="8" max="45" class="w-full font-extrabold text-sm text-slate-800 border-b border-slate-300 focus:border-sky-500 focus:outline-none tabular-nums">
+                  <span class="text-[10px] text-slate-500">hPa</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+              <input id="include-rise" type="checkbox" class="rounded text-sky-600 focus:ring-sky-500 w-4 h-4">
+              <span class="text-[11px] font-bold text-slate-700">気圧の上昇も警戒対象に含める</span>
+            </label>
+            <button id="reset-thresh-btn" type="button" class="text-[11px] font-bold text-sky-600 hover:underline whitespace-nowrap">
+              初期値に戻す
+            </button>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ==================== 6. 下部共通凡例 & 注意書き ==================== -->
+    <footer class="px-2.5 text-center sticky bottom-2 z-10 pointer-events-none">
+      <!-- グラフ・バナー・一覧と100%同一アイコンを使う4段階凡例 -->
+      <div id="bottom-legend" class="pointer-events-auto inline-flex items-center justify-center gap-2 min-[375px]:gap-2.5 bg-white/95 backdrop-blur-sm px-3.5 py-1.5 rounded-full shadow-md border border-sky-200/80 text-[11px] min-[375px]:text-xs font-extrabold text-slate-700 whitespace-nowrap">
+        <!-- JavaScriptで共通SVGアイコンを描画 -->
+      </div>
+    </footer>
+
+    <div class="px-3 pt-2 text-center">
+      <p class="text-[10px] text-slate-500 leading-relaxed">
+        ※7〜10日先の予報は不確実性が高くなります。警戒レベルは気圧変化の大きさを分類した目安であり、医学的診断を示すものではありません。データ提供：Open-Meteo
+      </p>
+    </div>
+  </div>
+
+  <!-- ==================== JavaScript ロジック ==================== -->
+  <script>
+    /**
+     * 気圧・天気ナビ アプリケーションロジック（完成版）
+     * - Open-Meteo API（forecast_days=11, Asia/Tokyo）から実予報を取得
+     * - 全期間タブ（24h/48h/72h/7d/10d）でグラフ左端の1点目を「現在時刻」に完全統一
+     * - 日別判定はそのカレンダー日内の時間帯のみで評価（前日からの24h持ち越しバグを解消）
+     * - 6h急変・12h単調変化・日内変動幅のカスタマイズ（localStorage保存）
+     * - 統一SVGアイコン（レベル4は導火線と火花のついた専用爆弾アイコン）
+     */
+
+    const DEFAULT_THRESHOLDS = {
+      // 6時間以内の急激な変化基準 (hPa)
+      h6_2: 3.0,
+      h6_3: 6.0,
+      h6_4: 10.0,
+      // 1日内（および12時間単調変化）の大きな変化幅基準 (hPa)
+      range_2: 6.0,
+      range_3: 11.0,
+      range_4: 16.0,
+      // 気圧上昇も警戒対象に含めるか
+      includeRise: true
+    };
+
+    const LEVEL_META = {
+      1: {
+        label: '安心',
+        bgBand: 'rgba(236, 253, 245, 0.28)',
+        badgeBg: 'bg-emerald-100',
+        badgeText: 'text-emerald-800',
+        markerFill: '#22c55e'
+      },
+      2: {
+        label: '注意',
+        bgBand: 'rgba(254, 249, 195, 0.55)',
+        badgeBg: 'bg-amber-100',
+        badgeText: 'text-amber-800',
+        markerFill: '#f59e0b'
+      },
+      3: {
+        label: '警戒',
+        bgBand: 'rgba(254, 226, 226, 0.55)',
+        badgeBg: 'bg-rose-100',
+        badgeText: 'text-rose-800',
+        markerFill: '#ef4444'
+      },
+      4: {
+        label: '爆弾',
+        bgBand: 'rgba(243, 232, 255, 0.65)',
+        badgeBg: 'bg-purple-100',
+        badgeText: 'text-purple-800',
+        markerFill: '#7e22ce'
+      }
+    };
+
+    const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+
+    const state = {
+      lat: 35.4437,
+      lon: 139.6380,
+      cityName: '横浜市',
+      period: '10d', // 初期表示: 10日間
+      weatherData: null,
+      selectedColIndex: null,
+      thresholds: loadThresholds()
+    };
+
+    // --- 1. 共通警戒アイコンSVG生成（全画面・凡例・グラフで100%同一） ---
+    function getAlertIconInnerSvg(level) {
+      if (level === 1) {
+        // レベル1: 安心（グリーンの笑顔サークル）
+        return `
+          <circle cx="12" cy="12" r="10.5" fill="#22c55e" stroke="#16a34a" stroke-width="1.2"/>
+          <circle cx="8.6" cy="9.8" r="1.35" fill="#ffffff"/>
+          <circle cx="15.4" cy="9.8" r="1.35" fill="#ffffff"/>
+          <path d="M8 14.3C9.1 16.1 10.6 16.9 12 16.9C13.4 16.9 14.9 16.1 16 14.3" stroke="#ffffff" stroke-width="2" stroke-linecap="round" fill="none"/>
+        `;
+      }
+      if (level === 2) {
+        // レベル2: 注意（アンバーの三角に白の「!」）
+        return `
+          <path d="M12 2.2L22.4 20.2C22.8 20.9 22.3 21.8 21.5 21.8H2.5C1.7 21.8 1.2 20.9 1.6 20.2L12 2.2Z" fill="#f59e0b" stroke="#d97706" stroke-width="1.4" stroke-linejoin="round"/>
+          <rect x="10.8" y="8.2" width="2.4" height="6.8" rx="1.2" fill="#ffffff"/>
+          <circle cx="12" cy="17.8" r="1.4" fill="#ffffff"/>
+        `;
+      }
+      if (level === 3) {
+        // レベル3: 警戒（レッドのトゲトゲバッジに白の「!」）
+        return `
+          <polygon points="12,1 14.9,3.4 18.6,2.7 19.6,6.3 22.8,8.3 21.6,11.9 23.1,15.3 20.1,17.6 19.4,21.3 15.7,21.4 13.1,23.8 10.2,21.6 6.5,22.4 5.3,18.9 2,17 3.1,13.4 1.4,10.1 4.3,7.6 4.9,3.9 8.6,3.7" fill="#ef4444" stroke="#b91c1c" stroke-width="1" stroke-linejoin="round"/>
+          <rect x="10.8" y="6.8" width="2.4" height="6.8" rx="1.2" fill="#ffffff"/>
+          <circle cx="12" cy="16.4" r="1.45" fill="#ffffff"/>
+        `;
+      }
+      // レベル4: 爆弾（紫の丸い爆弾本体＋導火線＋オレンジ＆黄色の火花）
+      return `
+        <!-- 爆弾の口金 -->
+        <rect x="13.8" y="5.1" width="3.8" height="3" rx="0.8" transform="rotate(38 15.7 6.6)" fill="#581c87"/>
+        <!-- 爆弾本体 -->
+        <circle cx="10.5" cy="14" r="8.2" fill="#7e22ce" stroke="#581c87" stroke-width="1.2"/>
+        <!-- 立体感のハイライト -->
+        <path d="M6.4 11.4C7 9.5 8.5 8.2 10.4 7.8" stroke="#d8b4fe" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <!-- 導火線 -->
+        <path d="M16.5 5.4C17.6 4.1 18.9 3.8 20.1 4.3" stroke="#92400e" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+        <!-- 火花（オレンジ＋イエロー） -->
+        <polygon points="20.6,0.8 21.5,2.9 23.7,2.4 22.2,4.2 23.8,5.9 21.5,5.5 20.8,7.6 19.8,5.6 17.6,6.1 19,4.3 17.5,2.6 19.7,3" fill="#f97316"/>
+        <circle cx="20.6" cy="4.2" r="1.3" fill="#fde047"/>
+      `;
+    }
+
+    function getAlertIconSvg(level, sizePx = 16) {
+      return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 24 24" class="inline-block shrink-0" aria-hidden="true">${getAlertIconInnerSvg(level)}</svg>`;
+    }
+
+    // --- 2. クリーンな天気SVGアイコン生成 ---
+    function getWeatherSvg(code, sizePx = 20) {
+      // 晴れ (0, 1)
+      if (code === 0 || code === 1) {
+        return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 24 24" class="inline-block shrink-0" aria-label="晴れ">
+          <circle cx="12" cy="12" r="5.2" fill="#f59e0b"/>
+          <g stroke="#f59e0b" stroke-width="2" stroke-linecap="round">
+            <line x1="12" y1="2.2" x2="12" y2="4.4"/>
+            <line x1="12" y1="19.6" x2="12" y2="21.8"/>
+            <line x1="2.2" y1="12" x2="4.4" y2="12"/>
+            <line x1="19.6" y1="12" x2="21.8" y2="12"/>
+            <line x1="5.1" y1="5.1" x2="6.7" y2="6.7"/>
+            <line x1="17.3" y1="17.3" x2="18.9" y2="18.9"/>
+            <line x1="18.9" y1="5.1" x2="17.3" y2="6.7"/>
+            <line x1="6.7" y1="17.3" x2="5.1" y2="18.9"/>
+          </g>
+        </svg>`;
+      }
+      // 晴れ時々くもり (2)
+      if (code === 2) {
+        return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 24 24" class="inline-block shrink-0" aria-label="晴れ時々くもり">
+          <circle cx="9.5" cy="9" r="4.2" fill="#f59e0b"/>
+          <path d="M8.5 19H18C19.9 19 21.5 17.4 21.5 15.5C21.5 13.7 20.1 12.2 18.4 12C17.9 9.7 15.9 8 13.5 8C10.8 8 8.6 10.1 8.5 12.8C6.8 13.1 5.5 14.5 5.5 16.2C5.5 17.8 6.8 19 8.5 19Z" fill="#cbd5e1" stroke="#94a3b8" stroke-width="1.2"/>
+        </svg>`;
+      }
+      // くもり・霧 (3, 45, 48)
+      if (code === 3 || code === 45 || code === 48) {
+        return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 24 24" class="inline-block shrink-0" aria-label="くもり">
+          <path d="M6.5 18.5H18C20.2 18.5 22 16.7 22 14.5C22 12.4 20.4 10.7 18.4 10.5C17.8 7.9 15.5 6 12.8 6C9.7 6 7.2 8.4 7.1 11.5C5.1 11.8 3.5 13.5 3.5 15.5C3.5 17.2 4.8 18.5 6.5 18.5Z" fill="#94a3b8" stroke="#64748b" stroke-width="1.2"/>
+        </svg>`;
+      }
+      // 雪 (71-77, 85-86)
+      if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) {
+        return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 24 24" class="inline-block shrink-0" aria-label="雪">
+          <g stroke="#0ea5e9" stroke-width="2" stroke-linecap="round">
+            <line x1="12" y1="3" x2="12" y2="21"/>
+            <line x1="4.2" y1="7.5" x2="19.8" y2="16.5"/>
+            <line x1="19.8" y1="7.5" x2="4.2" y2="16.5"/>
+          </g>
+          <circle cx="12" cy="12" r="2.2" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+        </svg>`;
+      }
+      // 雷雨 (95+)
+      if (code >= 95) {
+        return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 24 24" class="inline-block shrink-0" aria-label="雷雨">
+          <path d="M6 15H18C19.9 15 21.5 13.4 21.5 11.5C21.5 9.7 20.1 8.2 18.3 8C17.8 5.7 15.7 4 13.2 4C10.4 4 8.1 6.2 8 9C6.2 9.3 4.8 10.8 4.8 12.6C4.8 14 5.3 15 6 15Z" fill="#64748b"/>
+          <polygon points="12.5,12.5 9,17.5 12,17.5 10.8,22 15.5,16 12.3,16" fill="#eab308"/>
+        </svg>`;
+      }
+      // 雨 (傘アイコン: 51-67, 80-82)
+      return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 24 24" class="inline-block shrink-0" aria-label="雨">
+        <path d="M4 13C4 8.3 7.6 4.5 12 4.5C16.4 4.5 20 8.3 20 13H4Z" fill="#0284c7" stroke="#0369a1" stroke-width="1.2" stroke-linejoin="round"/>
+        <line x1="12" y1="3" x2="12" y2="4.5" stroke="#0369a1" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M12 13V18.2C12 19.5 11 20.5 9.8 20.5C8.7 20.5 7.8 19.6 7.8 18.5" fill="none" stroke="#0369a1" stroke-width="1.9" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    function decodeWeatherMeta(code) {
+      if (code === 0 || code === 1) return { label: '晴れ', isRain: false };
+      if (code === 2) return { label: '晴れ時々くもり', isRain: false };
+      if (code === 3) return { label: 'くもり', isRain: false };
+      if (code === 45 || code === 48) return { label: '霧', isRain: false };
+      if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { label: '雨', isRain: true };
+      if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return { label: '雪', isRain: true };
+      if (code >= 95) return { label: '雷雨', isRain: true };
+      return { label: 'くもり', isRain: false };
+    }
+
+    // --- 3. 設定の保存・読み込み ---
+    function loadThresholds() {
+      try {
+        const saved = localStorage.getItem('pressure_navi_thresholds_v4');
+        if (saved) return { ...DEFAULT_THRESHOLDS, ...JSON.parse(saved) };
+      } catch (e) {
+        console.warn('設定読み込みエラー:', e);
+      }
+      return { ...DEFAULT_THRESHOLDS };
+    }
+
+    function saveThresholds() {
+      try {
+        localStorage.setItem('pressure_navi_thresholds_v4', JSON.stringify(state.thresholds));
+      } catch (e) {
+        console.warn('設定保存エラー:', e);
+      }
+    }
+
+    // --- 4. 警戒レベル判定ロジック ---
+    function scoreToLevel(mag6, magRange) {
+      const t = state.thresholds;
+      if (mag6 >= t.h6_4 || magRange >= t.range_4) return 4;
+      if (mag6 >= t.h6_3 || magRange >= t.range_3) return 3;
+      if (mag6 >= t.h6_2 || magRange >= t.range_2) return 2;
+      return 1;
+    }
+
+    /**
+     * 【日別評価】7日間・10日間・10日まとめ一覧用
+     * その日の時間帯（現在時刻または0:00〜23:00）の中だけで評価し、前日の変化を持ち越さない
+     */
+    function evaluateDayMetrics(refHours) {
+      const valid = refHours.filter(h => h.pressure !== null && h.pressure !== undefined);
+      if (valid.length <= 1) {
+        return { level: 1, max6h: 0, dayAmp: 0, signedMain: 0 };
+      }
+
+      const includeRise = state.thresholds.includeRise;
+      let max6h = 0;
+      let signed6h = 0;
+      let dayAmp = 0;
+      let signedAmp = 0;
+
+      for (let i = 0; i < valid.length; i++) {
+        for (let j = i + 1; j < valid.length; j++) {
+          const diff = Number((valid[j].pressure - valid[i].pressure).toFixed(1));
+          const mag = includeRise ? Math.abs(diff) : Math.max(0, -diff);
+
+          // 1) その日の中で6時間以内に起きた最大変化
+          if (j - i <= 6 && mag > max6h) {
+            max6h = mag;
+            signed6h = diff;
+          }
+
+          // 2) その日全体の変化振幅（Max - Min / includeRise無効時はピークからボトムの最大低下幅）
+          if (mag > dayAmp) {
+            dayAmp = mag;
+            signedAmp = diff;
+          }
+        }
+      }
+
+      const level = scoreToLevel(max6h, dayAmp);
+      const signedMain = Math.abs(signed6h) >= state.thresholds.h6_2 ? signed6h : signedAmp;
+      return { level, max6h, dayAmp, signedMain };
+    }
+
+    /**
+     * 【時間点評価】24時間・48時間・72時間・グラフ点マーカー用
+     * 局所的な6時間変化（|ΔP_6h|）と、方向が一貫している場合の12時間変化（|ΔP_12h|）で評価（24h持ち越しなし）
+     */
+    function evaluatePointAlert(hourly, idx, floorIdx = 0) {
+      const cur = hourly[idx];
+      if (!cur || cur.pressure === null) return 1;
+
+      const includeRise = state.thresholds.includeRise;
+      let max6h = 0;
+      const start6 = Math.max(floorIdx, idx - 6);
+      for (let j = start6; j < idx; j++) {
+        const p = hourly[j]?.pressure;
+        if (p !== null && p !== undefined) {
+          const diff = cur.pressure - p;
+          const mag = includeRise ? Math.abs(diff) : Math.max(0, -diff);
+          if (mag > max6h) max6h = mag;
+        }
+      }
+
+      // 12時間変化：方向が一貫（単調）している場合のみ採用し、V字反転による誤検知を防止
+      let mono12h = 0;
+      const start12 = Math.max(floorIdx, idx - 12);
+      if (idx - start12 >= 8) {
+        const pStart = hourly[start12]?.pressure;
+        if (pStart !== null && pStart !== undefined) {
+          const netDiff = cur.pressure - pStart;
+          let pathSum = 0;
+          for (let j = start12 + 1; j <= idx; j++) {
+            const pA = hourly[j - 1]?.pressure;
+            const pB = hourly[j]?.pressure;
+            if (pA !== null && pB !== null) pathSum += Math.abs(pB - pA);
+          }
+          // 総移動量の75%以上が同一方向への変化である場合のみ12時間トレンドとして評価
+          if (pathSum > 0 && Math.abs(netDiff) / pathSum >= 0.75) {
+            mono12h = includeRise ? Math.abs(netDiff) : Math.max(0, -netDiff);
+          }
+        }
+      }
+
+      return scoreToLevel(max6h, mono12h);
+    }
+
+    // --- 5. Open-Meteo API 取得 ---
+    async function fetchWeatherData() {
+      const refreshIcon = document.getElementById('refresh-icon');
+      const updateTimeEl = document.getElementById('update-time');
+      const errorBanner = document.getElementById('error-banner');
+
+      refreshIcon.classList.add('animate-spin');
+      updateTimeEl.textContent = '更新中...';
+
+      // forecast_days=11 を指定し、深夜帯でも現在時刻から丸10日分のデータを確実に取得
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}`
+        + `&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,pressure_msl`
+        + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max`
+        + `&timezone=Asia%2FTokyo&forecast_days=11`;
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const raw = await response.json();
+        if (!raw || !raw.hourly || !raw.daily || !Array.isArray(raw.hourly.time)) {
+          throw new Error('気象データの形式が不正です');
+        }
+
+        state.weatherData = normalizeOpenMeteoData(raw);
+        state.selectedColIndex = null;
+        errorBanner.classList.add('hidden');
+
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        updateTimeEl.textContent = `更新 ${hh}:${mm}`;
+
+        renderAll();
+      } catch (err) {
+        console.error('気象API取得失敗:', err);
+        state.weatherData = null;
+        state.selectedColIndex = null;
+        updateTimeEl.textContent = '取得失敗';
+        document.getElementById('error-detail').textContent =
+          `通信エラー（${err.message}）により最新予報を取得できませんでした。古い情報を誤表示しないため画面をクリアしています。`;
+        errorBanner.classList.remove('hidden');
+        renderEmptyState();
+      } finally {
+        refreshIcon.classList.remove('animate-spin');
+      }
+    }
+
+    function normalizeOpenMeteoData(raw) {
+      const times = raw.hourly.time;
+      const pressures = raw.hourly.pressure_msl;
+      const temps = raw.hourly.temperature_2m;
+      const humidities = raw.hourly.relative_humidity_2m;
+      const pops = raw.hourly.precipitation_probability;
+      const codes = raw.hourly.weather_code;
+
+      const hourly = times.map((tStr, idx) => {
+        const [datePart, timePart] = tStr.split('T');
+        const [y, m, d] = datePart.split('-').map(Number);
+        const hour = parseInt(timePart.split(':')[0], 10);
+        const dateObj = new Date(y, m - 1, d, hour, 0, 0);
+
+        return {
+          index: idx,
+          timeStr: tStr,
+          dateStr: datePart,
+          hour,
+          dateObj,
+          pressure: pressures[idx],
+          temp: temps[idx],
+          humidity: humidities[idx],
+          pop: pops[idx] ?? 0,
+          weatherCode: codes[idx]
+        };
+      });
+
+      // 日本時間（Asia/Tokyo）の現在時刻に一致する hourly インデックスを特定
+      const jstNowStr = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Tokyo' });
+      const [jstDate, jstTime] = jstNowStr.split(' ');
+      const jstHour = parseInt(jstTime.split(':')[0], 10);
+
+      let nowIndex = hourly.findIndex(h => h.dateStr === jstDate && h.hour === jstHour);
+      if (nowIndex === -1) {
+        const nowMs = Date.now();
+        let minDiff = Infinity;
+        hourly.forEach((h, idx) => {
+          const diff = Math.abs(h.dateObj.getTime() - nowMs);
+          if (diff < minDiff) {
+            minDiff = diff;
+            nowIndex = idx;
+          }
+        });
+      }
+
+      const daily = raw.daily.time.map((dStr, dIdx) => {
+        const [y, m, d] = dStr.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d, 0, 0, 0);
+        const dayHours = hourly.filter(h => h.dateStr === dStr);
+        const avgHumidity = dayHours.length
+          ? Math.round(dayHours.reduce((acc, h) => acc + (h.humidity || 0), 0) / dayHours.length)
+          : 0;
+
+        return {
+          dayIndex: dIdx,
+          dateStr: dStr,
+          dateObj,
+          weatherCode: raw.daily.weather_code[dIdx],
+          tempMax: Math.round(raw.daily.temperature_2m_max[dIdx]),
+          tempMin: Math.round(raw.daily.temperature_2m_min[dIdx]),
+          popMax: raw.daily.precipitation_probability_max[dIdx] ?? 0,
+          avgHumidity,
+          hours: dayHours
+        };
+      });
+
+      const curHour = hourly[nowIndex] || hourly[0];
+      return {
+        current: {
+          pressure: curHour.pressure,
+          temp: curHour.temp,
+          humidity: curHour.humidity,
+          weatherCode: curHour.weatherCode,
+          pop: curHour.pop ?? 0
+        },
+        nowIndex,
+        hourly,
+        daily
+      };
+    }
+
+    // --- 6. 画面全体の描画 ---
+    function renderAll() {
+      if (!state.weatherData) {
+        renderEmptyState();
+        return;
+      }
+      renderCurrentSummary();
+      renderChartAndTable();
+      renderAllTenDaysList();
+    }
+
+    function renderEmptyState() {
+      document.getElementById('current-weather-icon').innerHTML = getWeatherSvg(2, 24);
+      document.getElementById('current-pressure').textContent = '----';
+      document.getElementById('current-weather-text').textContent = '未取得';
+      document.getElementById('current-temp').textContent = '--°';
+      document.getElementById('current-humidity').textContent = '--%';
+      document.getElementById('current-pop').textContent = '--%';
+      const badgeEl = document.getElementById('summary-level-badge');
+      badgeEl.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-slate-100 text-slate-600 whitespace-nowrap shrink-0';
+      badgeEl.innerHTML = `${getAlertIconSvg(1, 15)}<span>未取得</span>`;
+      document.getElementById('summary-message').textContent = '再取得ボタンを押してデータを読み込んでください';
+      document.getElementById('chart-container').innerHTML =
+        `<div class="h-48 flex items-center justify-center text-xs font-bold text-slate-400">表示できる気象データがありません</div>`;
+      document.getElementById('forecast-table-container').innerHTML = '';
+      document.getElementById('all-days-list').innerHTML =
+        `<p class="text-slate-400 text-[11px] py-2">データ取得後に全10日分のまとめが表示されます</p>`;
+    }
+
+    // --- 7. 現在の天気・気圧カード描画 ---
+    function renderCurrentSummary() {
+      const { current, hourly, nowIndex } = state.weatherData;
+      const wMeta = decodeWeatherMeta(current.weatherCode);
+
+      document.getElementById('current-weather-icon').innerHTML = getWeatherSvg(current.weatherCode, 26);
+      document.getElementById('current-weather-text').textContent = wMeta.label;
+      document.getElementById('current-pressure').textContent = current.pressure.toFixed(1);
+      document.getElementById('current-temp').textContent = `${Math.round(current.temp)}°`;
+      document.getElementById('current-humidity').textContent = `${Math.round(current.humidity)}%`;
+      document.getElementById('current-pop').textContent = `${current.pop}%`;
+
+      // 今後24時間の最大警戒レベル（nowIndexを基準に評価）
+      const next24 = hourly.slice(nowIndex, nowIndex + 24);
+      const metrics24 = evaluateDayMetrics(next24);
+      const maxLevel = metrics24.level;
+
+      const meta = LEVEL_META[maxLevel];
+      const badgeEl = document.getElementById('summary-level-badge');
+      badgeEl.className = `inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold ${meta.badgeBg} ${meta.badgeText} whitespace-nowrap shrink-0`;
+      badgeEl.innerHTML = `${getAlertIconSvg(maxLevel, 15)}<span>${meta.label}</span>`;
+
+      const msgMap = {
+        1: '今後24時間：気圧は比較的安定しています',
+        2: '今後24時間：気圧の変化に少し注意してください',
+        3: '今後24時間：大きな気圧変化に注意',
+        4: '今後24時間：非常に急激な気圧変化に警戒'
+      };
+      document.getElementById('summary-message').textContent = msgMap[maxLevel];
+    }
+
+    // --- 8. 全期間共通：現在時刻（nowIndex）左端起点のグラフモデル構築 ---
+    function buildUnifiedChartModel() {
+      const { hourly, daily, nowIndex } = state.weatherData;
+      const period = state.period;
+      const nowItem = hourly[nowIndex];
+
+      // 【日別モード: 7日間 / 10日間】
+      // 左端の1点目は必ず「現在時刻（nowIndex）」に配置し、各日列は6時間刻みでプロット
+      if (period === '10d' || period === '7d') {
+        const numDays = period === '10d' ? 10 : 7;
+        const startDayIdx = daily.findIndex(d => d.dateStr === nowItem.dateStr);
+        const baseDayIdx = startDayIdx >= 0 ? startDayIdx : 0;
+        const targetDays = daily.slice(baseDayIdx, baseDayIdx + numDays);
+
+        const columns = targetDays.map((day, colIdx) => {
+          const validHours = day.hours.filter(h => h.index >= nowIndex);
+          const refHours = validHours.length > 0 ? validHours : day.hours;
+          const metrics = evaluateDayMetrics(refHours);
+
+          const pressuresInDay = refHours.map(x => x.pressure).filter(v => v !== null);
+          const minP = Math.min(...pressuresInDay).toFixed(0);
+          const maxP = Math.max(...pressuresInDay).toFixed(0);
+
+          return {
+            index: colIdx,
+            headerTop: `${day.dateObj.getMonth() + 1}/${day.dateObj.getDate()}`,
+            headerSub: `(${DAY_NAMES[day.dateObj.getDay()]})`,
+            dayOfWeek: day.dateObj.getDay(),
+            peakLevel: metrics.level,
+            weatherCode: day.weatherCode,
+            tempMax: day.tempMax,
+            tempMin: day.tempMin,
+            humidityText: `${day.avgHumidity}`,
+            popText: `${day.popMax}`,
+            popNum: day.popMax,
+            detailTitle: `${day.dateObj.getMonth() + 1}/${day.dateObj.getDate()}(${DAY_NAMES[day.dateObj.getDay()]})`,
+            detailSummary: `${minP}〜${maxP}hPa / 6h最大 ${metrics.max6h.toFixed(1)}hPa`
+          };
+        });
+
+        // 折れ線プロット点の生成（1点目は必ず exact nowIndex を左端 xFraction=0 に配置）
+        const plotPoints = [];
+        targetDays.forEach((day, colIdx) => {
+          if (colIdx === 0) {
+            const hNow = nowItem.hour;
+            const remSpan = Math.max(1, 24 - hNow);
+
+            plotPoints.push({
+              colIdx: 0,
+              xFractionInCol: 0,
+              pressure: nowItem.pressure,
+              level: evaluatePointAlert(hourly, nowIndex, nowIndex),
+              isAnchor: true
+            });
+
+            // 今日の残り時間の6時間刻み点（および直後傾向を繋ぐ+3h点）
+            const candidateHours = [];
+            for (let h = hNow + 3; h < 24; h += 3) {
+              candidateHours.push(h);
+            }
+            candidateHours.forEach(h => {
+              const item = day.hours.find(x => x.hour === h);
+              if (item && item.pressure !== null) {
+                plotPoints.push({
+                  colIdx: 0,
+                  xFractionInCol: (h - hNow) / remSpan,
+                  pressure: item.pressure,
+                  level: evaluatePointAlert(hourly, item.index, nowIndex),
+                  isAnchor: h % 6 === 0
+                });
+              }
+            });
+          } else {
+            // 2日目以降: 6時間刻み（0時, 6時, 12時, 18時、最終日は23時も追加）
+            const sampleHours = (colIdx === targetDays.length - 1) ? [0, 6, 12, 18, 23] : [0, 6, 12, 18];
+            const dayFloorIdx = day.hours[0]?.index ?? nowIndex;
+            sampleHours.forEach(h => {
+              const item = day.hours.find(x => x.hour === h);
+              if (item && item.pressure !== null) {
+                plotPoints.push({
+                  colIdx,
+                  xFractionInCol: h / 24,
+                  pressure: item.pressure,
+                  level: evaluatePointAlert(hourly, item.index, dayFloorIdx),
+                  isAnchor: h === 0 || h === 12
+                });
+              }
+            });
+          }
+        });
+
+        return { mode: 'daily', columns, plotPoints };
+      }
+
+      // 【時間別モード: 24時間 (1h刻み) / 48時間 (2h刻み) / 72時間 (3h刻み)】
+      // 左端の1点目は必ず「現在時刻（nowIndex）」からスタート
+      const totalHours = period === '24h' ? 24 : (period === '48h' ? 48 : 72);
+      const stepHours = period === '24h' ? 1 : (period === '48h' ? 2 : 3);
+      const numCols = period === '24h' ? 8 : (period === '48h' ? 8 : 12); // 24h=3h/列, 48h=6h/列, 72h=6h/列
+      const hoursPerCol = totalHours / numCols;
+
+      const columns = [];
+      for (let c = 0; c < numCols; c++) {
+        const startOffset = c * hoursPerCol;
+        const endOffset = (c + 1) * hoursPerCol;
+        const chunk = hourly.slice(nowIndex + startOffset, nowIndex + endOffset);
+        if (!chunk.length) break;
+
+        let peakLevel = 1;
+        let maxPop = 0;
+        chunk.forEach(h => {
+          const lv = evaluatePointAlert(hourly, h.index, nowIndex);
+          if (lv > peakLevel) peakLevel = lv;
+          if (h.pop > maxPop) maxPop = h.pop;
+        });
+
+        const rep = chunk[0];
+        const temps = chunk.map(h => h.temp).filter(v => v !== null);
+        const avgHum = Math.round(chunk.reduce((a, b) => a + (b.humidity || 0), 0) / chunk.length);
+
+        const showDate = c === 0 || rep.hour < hoursPerCol;
+        const subText = showDate
+          ? `${rep.dateObj.getMonth() + 1}/${rep.dateObj.getDate()}`
+          : `(${DAY_NAMES[rep.dateObj.getDay()]})`;
+
+        columns.push({
+          index: c,
+          headerTop: `${rep.hour}時`,
+          headerSub: subText,
+          dayOfWeek: rep.dateObj.getDay(),
+          peakLevel,
+          weatherCode: rep.weatherCode,
+          tempMax: Math.round(Math.max(...temps)),
+          tempMin: Math.round(Math.min(...temps)),
+          humidityText: `${avgHum}`,
+          popText: `${maxPop}`,
+          popNum: maxPop,
+          detailTitle: `${rep.dateObj.getMonth() + 1}/${rep.dateObj.getDate()} ${rep.hour}:00〜`,
+          detailSummary: `${rep.pressure.toFixed(1)}hPa / ${Math.round(rep.temp)}°C / 降水${maxPop}%`
+        });
+      }
+
+      // プロット点：offset = 0（exact nowIndex）から指定ステップ間隔でプロット
+      const plotPoints = [];
+      for (let offset = 0; offset <= totalHours; offset += stepHours) {
+        const item = hourly[nowIndex + offset];
+        if (!item || item.pressure === null) break;
+
+        let colIdx = Math.floor(offset / hoursPerCol);
+        let xFractionInCol = (offset - colIdx * hoursPerCol) / hoursPerCol;
+        if (colIdx >= numCols) {
+          colIdx = numCols - 1;
+          xFractionInCol = 1.0;
+        }
+
+        plotPoints.push({
+          colIdx,
+          xFractionInCol,
+          pressure: item.pressure,
+          level: evaluatePointAlert(hourly, item.index, nowIndex),
+          isAnchor: offset % hoursPerCol === 0
+        });
+      }
+
+      return { mode: 'hourly', columns, plotPoints };
+    }
+
+    // --- 9. SVG気圧グラフ ＋ 縦揃え天気予報テーブルの描画 ---
+    function renderChartAndTable() {
+      const model = buildUnifiedChartModel();
+      const { columns, plotPoints } = model;
+      if (!columns.length || !plotPoints.length) return;
+
+      // 縦軸スケール（基本は980〜1040hPa固定。範囲外の数値があるときのみ10hPa単位で自動拡張）
+      const pressures = plotPoints.map(p => p.pressure);
+      const minP = Math.min(...pressures);
+      const maxP = Math.max(...pressures);
+
+      let yMin = 980;
+      let yMax = 1040;
+      let isExpanded = false;
+
+      if (minP < 980) {
+        yMin = Math.floor(minP / 10) * 10;
+        isExpanded = true;
+      }
+      if (maxP > 1040) {
+        yMax = Math.ceil(maxP / 10) * 10;
+        isExpanded = true;
+      }
+
+      const scaleNotice = document.getElementById('scale-notice');
+      scaleNotice.classList.toggle('hidden', !isExpanded);
+
+      // SVG座標定義（左軸 44 / 全体 400 = 11.0%、右余白 4 / 400 = 1.0%）
+      const svgW = 400;
+      const svgH = 196;
+      const leftAxisW = 44;
+      const rightPadW = 4;
+      const topHeaderH = 29;
+      const iconBandH = 23;
+      const plotTop = topHeaderH + iconBandH;
+      const plotBottom = svgH - 8;
+      const plotH = plotBottom - plotTop;
+      const plotW = svgW - leftAxisW - rightPadW;
+      const colW = plotW / columns.length;
+
+      const pToY = (p) => plotBottom - ((p - yMin) / (yMax - yMin)) * plotH;
+
+      const yTicks = [];
+      for (let v = yMin; v <= yMax; v += 20) yTicks.push(v);
+
+      const svg = [];
+      svg.push(`<svg viewBox="0 0 ${svgW} ${svgH}" class="w-full h-auto block" role="img" aria-label="気圧変化グラフ">`);
+
+      // 1) 左上「気圧 (hPa)」
+      svg.push(`
+        <text x="${leftAxisW / 2}" y="13" text-anchor="middle" font-size="9.5" font-weight="800" fill="#475569">気圧</text>
+        <text x="${leftAxisW / 2}" y="23.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#64748b">(hPa)</text>
+      `);
+
+      // 2) 各列の警戒背景帯・日付ヘッダー・気圧警戒アイコン（傘アイコンは一切表示しない）
+      const headerFontSize = columns.length >= 12 ? '8.5' : '9.5';
+      const subFontSize = columns.length >= 12 ? '8' : '9';
+
+      columns.forEach((col, idx) => {
+        const x0 = leftAxisW + idx * colW;
+        const xCenter = x0 + colW / 2;
+        const meta = LEVEL_META[col.peakLevel];
+        const isSelected = state.selectedColIndex === idx;
+
+        svg.push(`
+          <rect x="${x0}" y="${topHeaderH}" width="${colW}" height="${plotBottom - topHeaderH}" fill="${meta.bgBand}" />
+        `);
+
+        if (isSelected) {
+          svg.push(`
+            <rect x="${x0 + 0.5}" y="1" width="${colW - 1}" height="${svgH - 2}" rx="4"
+                  fill="rgba(2, 132, 199, 0.10)" stroke="#0284c7" stroke-width="1.4" />
+          `);
+        }
+
+        if (idx > 0) {
+          svg.push(`<line x1="${x0}" y1="3" x2="${x0}" y2="${plotBottom}" stroke="#e2e8f0" stroke-width="1" />`);
+        }
+
+        // 日付・曜日ヘッダー（土曜は青、日曜は赤）
+        let dayColor = '#334155';
+        if (model.mode === 'daily') {
+          if (col.dayOfWeek === 6) dayColor = '#0284c7';
+          if (col.dayOfWeek === 0) dayColor = '#dc2626';
+        }
+        svg.push(`
+          <text x="${xCenter}" y="13" text-anchor="middle" font-size="${headerFontSize}" font-weight="800" fill="${dayColor}">${col.headerTop}</text>
+          <text x="${xCenter}" y="23.5" text-anchor="middle" font-size="${subFontSize}" font-weight="700" fill="${dayColor}">${col.headerSub}</text>
+        `);
+
+        // グラフ上部アイコン：レベル2以上（注意・警戒・爆弾）の気圧警戒アイコンのみ中央に配置
+        if (col.peakLevel >= 2) {
+          const iconSize = columns.length >= 12 ? 14 : 16;
+          const iconY = topHeaderH + (iconBandH - iconSize) / 2;
+          svg.push(`
+            <svg x="${xCenter - iconSize / 2}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24">
+              ${getAlertIconInnerSvg(col.peakLevel)}
+            </svg>
+          `);
+        }
+      });
+
+      // 3) 横目盛り線と左軸ラベル
+      yTicks.forEach(tick => {
+        const y = pToY(tick);
+        svg.push(`
+          <line x1="${leftAxisW}" y1="${y}" x2="${svgW - rightPadW}" y2="${y}"
+                stroke="#cbd5e1" stroke-width="1" stroke-dasharray="${tick === 1000 ? 'none' : '2,2'}" />
+          <text x="${leftAxisW - 4}" y="${y + 3.5}" text-anchor="end" font-size="10" font-weight="800" fill="#475569">${tick}</text>
+        `);
+      });
+
+      // 4) 折れ線座標計算
+      const coords = plotPoints.map((pt, idx) => {
+        const x = leftAxisW + (pt.colIdx + pt.xFractionInCol) * colW;
+        const y = pToY(pt.pressure);
+        return { x, y, level: pt.level, isAnchor: pt.isAnchor, isStart: idx === 0 };
+      });
+
+      if (coords.length > 1) {
+        const areaPath = [
+          `M ${coords[0].x.toFixed(1)} ${plotBottom}`,
+          ...coords.map(c => `L ${c.x.toFixed(1)} ${c.y.toFixed(1)}`),
+          `L ${coords[coords.length - 1].x.toFixed(1)} ${plotBottom}`,
+          'Z'
+        ].join(' ');
+
+        svg.push(`
+          <defs>
+            <linearGradient id="pLineFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#0284c7" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#0284c7" stop-opacity="0.01"/>
+            </linearGradient>
+          </defs>
+          <path d="${areaPath}" fill="url(#pLineFill)" />
+        `);
+
+        const linePath = coords
+          .map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
+          .join(' ');
+
+        svg.push(`
+          <path d="${linePath}" fill="none" stroke="#0284c7" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" />
+        `);
+      }
+
+      // 5) データ点マーカー（左端の現在時刻は二重リングで明示、それ以外は警戒レベル色）
+      coords.forEach(c => {
+        const fill = c.level >= 2 ? LEVEL_META[c.level].markerFill : '#0284c7';
+        if (c.isStart) {
+          svg.push(`
+            <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="5" fill="rgba(2,132,199,0.22)" />
+            <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.4" fill="${fill}" stroke="#ffffff" stroke-width="1.4" />
+          `);
+        } else {
+          const r = c.level >= 3 ? 3.2 : (c.isAnchor ? 2.6 : 2.1);
+          svg.push(`
+            <circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${r}" fill="${fill}" stroke="#ffffff" stroke-width="1.0" />
+          `);
+        }
+      });
+
+      // 6) タップ検出用透明矩形
+      columns.forEach((col, idx) => {
+        const x0 = leftAxisW + idx * colW;
+        svg.push(`
+          <rect x="${x0}" y="0" width="${colW}" height="${svgH}" fill="transparent" class="chart-col-hit" data-col-idx="${idx}" />
+        `);
+      });
+
+      svg.push(`</svg>`);
+      document.getElementById('chart-container').innerHTML = svg.join('');
+
+      // 7) グラフの列と縦に完全一致する天気予報テーブル
+      const gridTemplate = `11% repeat(${columns.length}, minmax(0, 1fr)) 1%`;
+      const is12Col = columns.length >= 12;
+      const weatherIconSize = is12Col ? 16 : 19;
+      const numFontClass = is12Col ? 'text-[9.5px]' : 'text-[10.5px]';
+
+      const tableRows = [
+        {
+          label: '天気',
+          renderCell: (col) => {
+            const wMeta = decodeWeatherMeta(col.weatherCode);
+            return `
+              <div class="flex items-center justify-center py-0.5 ${wMeta.isRain ? 'bg-sky-50/90 rounded-md mx-0.5' : ''}">
+                ${getWeatherSvg(col.weatherCode, weatherIconSize)}
+              </div>
+            `;
+          }
+        },
+        {
+          label: '気温(℃)',
+          renderCell: (col) => `
+            <div class="flex flex-col items-center justify-center leading-tight tabular-nums py-0.5">
+              <span class="${numFontClass} font-extrabold text-rose-600">${col.tempMax}°</span>
+              <span class="${numFontClass} font-extrabold text-blue-600 mt-0.5">${col.tempMin}°</span>
+            </div>
+          `
+        },
+        {
+          label: '湿度(%)',
+          renderCell: (col) => `
+            <span class="${numFontClass} font-bold text-slate-600 tabular-nums">${col.humidityText}</span>
+          `
+        },
+        {
+          label: '降水(%)',
+          renderCell: (col) => `
+            <span class="${numFontClass} font-extrabold tabular-nums ${col.popNum >= 50 ? 'text-sky-600' : 'text-slate-600'}">${col.popText}</span>
+          `
+        }
+      ];
+
+      let tableHtml = `<div class="divide-y divide-slate-100">`;
+      tableRows.forEach(row => {
+        tableHtml += `<div class="grid items-center py-1" style="grid-template-columns: ${gridTemplate};">`;
+        tableHtml += `
+          <div class="px-0.5 flex items-center justify-center text-center border-r border-slate-100">
+            <span class="text-[9.5px] font-extrabold text-slate-600 leading-tight">${row.label}</span>
+          </div>
+        `;
+        columns.forEach((col, idx) => {
+          const isSelected = state.selectedColIndex === idx;
+          tableHtml += `
+            <div data-col-idx="${idx}"
+                 class="cursor-pointer text-center py-0.5 border-r border-slate-100/80 last:border-r-0 transition ${isSelected ? 'bg-sky-100/70' : 'hover:bg-slate-50'}">
+              ${row.renderCell(col)}
+            </div>
+          `;
+        });
+        tableHtml += `<div></div></div>`;
+      });
+      tableHtml += `</div>`;
+
+      document.getElementById('forecast-table-container').innerHTML = tableHtml;
+
+      // インスペクター更新 & クリックイベント紐付け
+      updateInspector(columns);
+      document.querySelectorAll('[data-col-idx]').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = Number(el.getAttribute('data-col-idx'));
+          state.selectedColIndex = (state.selectedColIndex === idx) ? null : idx;
+          renderChartAndTable();
+        });
+      });
+    }
+
+    function updateInspector(columns) {
+      const leftEl = document.getElementById('inspector-left');
+      const valEl = document.getElementById('inspector-values');
+
+      if (state.selectedColIndex !== null && columns[state.selectedColIndex]) {
+        const col = columns[state.selectedColIndex];
+        const meta = LEVEL_META[col.peakLevel];
+        leftEl.innerHTML = `
+          ${getAlertIconSvg(col.peakLevel, 14)}
+          <span>${col.detailTitle} ${meta.label}</span>
+        `;
+        valEl.textContent = col.detailSummary;
+      } else {
+        leftEl.innerHTML = `
+          <span class="text-sky-600">📍</span>
+          <span>グラフの列をタップして詳細を表示</span>
+        `;
+        valEl.textContent = '';
+      }
+    }
+
+    // --- 10. 10日間の気圧・天気まとめ一覧（全10日分を順番に表示・ピル折り返しなし） ---
+    function renderAllTenDaysList() {
+      const listEl = document.getElementById('all-days-list');
+      const { hourly, daily, nowIndex } = state.weatherData;
+      const nowItem = hourly[nowIndex];
+      const startDayIdx = daily.findIndex(d => d.dateStr === nowItem.dateStr);
+      const baseDayIdx = startDayIdx >= 0 ? startDayIdx : 0;
+
+      const rowsHtml = daily.slice(baseDayIdx, baseDayIdx + 10).map((day, idx) => {
+        const validHours = day.hours.filter(h => h.index >= nowIndex);
+        const refHours = validHours.length > 0 ? validHours : day.hours;
+        const metrics = evaluateDayMetrics(refHours);
+
+        const pressuresInDay = refHours.map(x => x.pressure).filter(v => v !== null);
+        const minP = Math.min(...pressuresInDay).toFixed(0);
+        const maxP = Math.max(...pressuresInDay).toFixed(0);
+
+        const meta = LEVEL_META[metrics.level];
+        const wMeta = decodeWeatherMeta(day.weatherCode);
+        const hasRain = wMeta.isRain || day.popMax >= 50;
+
+        // 日付表示（土曜は青・日曜は赤）
+        const dow = day.dateObj.getDay();
+        const dowColor = dow === 6 ? 'text-sky-600' : (dow === 0 ? 'text-rose-600' : 'text-slate-600');
+        const dateLabel = `${day.dateObj.getMonth() + 1}/${day.dateObj.getDate()}`;
+        const dowLabel = `(${DAY_NAMES[dow]})`;
+
+        // 日ごとの簡潔なコメント
+        let comment = '';
+        if (metrics.level === 1) {
+          comment = hasRain ? '変化小・雨具用意' : '変化は小さめ';
+        } else if (metrics.level === 2) {
+          comment = metrics.signedMain <= 0 ? '緩やかに低下' : '緩やかに上昇';
+        } else if (metrics.level === 3) {
+          comment = metrics.signedMain <= 0 ? '大きな低下に警戒' : '大きな上昇に注意';
+        } else {
+          comment = metrics.signedMain <= 0 ? '急激な低下に警戒' : '急激な上昇に警戒';
+        }
+
+        return `
+          <button type="button" data-jump-day="${idx}"
+            class="w-full flex items-center justify-between gap-1.5 py-2 px-1 hover:bg-sky-50/80 active:bg-sky-100/70 rounded-lg text-left transition">
+            <!-- 日付・曜日 -->
+            <div class="flex items-center gap-0.5 w-[56px] whitespace-nowrap shrink-0">
+              <span class="text-[11.5px] font-extrabold text-slate-800 tabular-nums">${dateLabel}</span>
+              <span class="text-[10.5px] font-extrabold ${dowColor}">${dowLabel}</span>
+            </div>
+
+            <!-- 共通警戒アイコン + ラベル（whitespace-nowrap shrink-0 で縦折り返し防止） -->
+            <span class="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-extrabold ${meta.badgeBg} ${meta.badgeText} whitespace-nowrap shrink-0">
+              ${getAlertIconSvg(metrics.level, 13)}
+              <span>${meta.label}</span>
+            </span>
+
+            <!-- 天気アイコン -->
+            <span class="shrink-0 flex items-center justify-center w-5">${getWeatherSvg(day.weatherCode, 17)}</span>
+
+            <!-- 日別気圧レンジ -->
+            <span class="text-[10px] font-bold text-slate-500 tabular-nums whitespace-nowrap shrink-0">${minP}〜${maxP}hPa</span>
+
+            <!-- 変化コメント -->
+            <span class="text-[10.5px] font-bold text-slate-700 whitespace-nowrap truncate flex-1 min-w-0 text-right">${comment}</span>
+          </button>
+        `;
+      }).join('');
+
+      listEl.innerHTML = rowsHtml;
+
+      // 行タップで10日間グラフの該当日にフォーカス
+      listEl.querySelectorAll('[data-jump-day]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const dIdx = Number(btn.getAttribute('data-jump-day'));
+          setActivePeriod('10d');
+          state.selectedColIndex = dIdx;
+          renderChartAndTable();
+          document.getElementById('inspector-bar').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      });
+    }
+
+    // --- 11. 共通アイコンを用いた凡例・設定UI初期化 ---
+    function renderSharedStaticIcons() {
+      const legendEl = document.getElementById('bottom-legend');
+      legendEl.innerHTML = [1, 2, 3, 4].map((lv, i) => `
+        ${i > 0 ? '<span class="text-slate-200">|</span>' : ''}
+        <span class="inline-flex items-center gap-1 whitespace-nowrap">
+          ${getAlertIconSvg(lv, 15)}
+          <span>${LEVEL_META[lv].label}</span>
+        </span>
+      `).join('');
+
+      document.getElementById('setting-icon-2').innerHTML = getAlertIconSvg(2, 13);
+      document.getElementById('setting-icon-3').innerHTML = getAlertIconSvg(3, 13);
+      document.getElementById('setting-icon-4').innerHTML = getAlertIconSvg(4, 13);
+    }
+
+    function setActivePeriod(period) {
+      state.period = period;
+      state.selectedColIndex = null;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isTarget = btn.getAttribute('data-period') === period;
+        btn.classList.toggle('active', isTarget);
+        btn.classList.toggle('text-slate-600', !isTarget);
+      });
+    }
+
+    function syncThresholdInputs() {
+      document.getElementById('thresh-6h-2').value = state.thresholds.h6_2;
+      document.getElementById('thresh-6h-3').value = state.thresholds.h6_3;
+      document.getElementById('thresh-6h-4').value = state.thresholds.h6_4;
+      document.getElementById('thresh-range-2').value = state.thresholds.range_2;
+      document.getElementById('thresh-range-3').value = state.thresholds.range_3;
+      document.getElementById('thresh-range-4').value = state.thresholds.range_4;
+      document.getElementById('include-rise').checked = state.thresholds.includeRise;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderSharedStaticIcons();
+      syncThresholdInputs();
+
+      // 期間切り替えタブ
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setActivePeriod(btn.getAttribute('data-period'));
+          if (state.weatherData) renderChartAndTable();
+        });
+      });
+
+      // 地域変更
+      document.getElementById('city-select').addEventListener('change', (e) => {
+        const [lat, lon] = e.target.value.split(',').map(Number);
+        state.lat = lat;
+        state.lon = lon;
+        state.cityName = e.target.options[e.target.selectedIndex].text;
+        fetchWeatherData();
+      });
+
+      // 更新・再試行
+      document.getElementById('refresh-btn').addEventListener('click', fetchWeatherData);
+      document.getElementById('retry-btn').addEventListener('click', fetchWeatherData);
+
+      // 6h判定基準の調整
+      ['thresh-6h-2', 'thresh-6h-3', 'thresh-6h-4'].forEach((id, idx) => {
+        document.getElementById(id).addEventListener('change', (e) => {
+          const val = parseFloat(e.target.value);
+          if (!Number.isNaN(val) && val > 0) {
+            if (idx === 0) state.thresholds.h6_2 = val;
+            if (idx === 1) state.thresholds.h6_3 = val;
+            if (idx === 2) state.thresholds.h6_4 = val;
+            saveThresholds();
+            if (state.weatherData) renderAll();
+          }
+        });
+      });
+
+      // 日内／12時間判定基準の調整
+      ['thresh-range-2', 'thresh-range-3', 'thresh-range-4'].forEach((id, idx) => {
+        document.getElementById(id).addEventListener('change', (e) => {
+          const val = parseFloat(e.target.value);
+          if (!Number.isNaN(val) && val > 0) {
+            if (idx === 0) state.thresholds.range_2 = val;
+            if (idx === 1) state.thresholds.range_3 = val;
+            if (idx === 2) state.thresholds.range_4 = val;
+            saveThresholds();
+            if (state.weatherData) renderAll();
+          }
+        });
+      });
+
+      document.getElementById('include-rise').addEventListener('change', (e) => {
+        state.thresholds.includeRise = e.target.checked;
+        saveThresholds();
+        if (state.weatherData) renderAll();
+      });
+
+      document.getElementById('reset-thresh-btn').addEventListener('click', () => {
+        state.thresholds = { ...DEFAULT_THRESHOLDS };
+        saveThresholds();
+        syncThresholdInputs();
+        if (state.weatherData) renderAll();
+      });
+
+      // 初回データ取得
+      fetchWeatherData();
+    });
+  </script>
+</body>
+</html>
